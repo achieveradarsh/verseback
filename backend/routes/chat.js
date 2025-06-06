@@ -25,7 +25,7 @@ router.get("/chats/:chatId/messages", auth, async (req, res) => {
 
     // Verify user is participant
     if (!Chat.isParticipant(chatId, req.user.id)) {
-      return res.status(404).json({ message: "Chat not found" })
+      return res.status(404).json({ message: "Chat not found or access denied" })
     }
 
     const offset = (page - 1) * limit
@@ -43,22 +43,35 @@ router.post("/groups", auth, async (req, res) => {
   try {
     const { name, participants } = req.body
 
-    if (!name || !participants || participants.length < 2) {
-      return res.status(400).json({ message: "Group name and at least 2 participants required" })
+    if (!name || !participants || participants.length < 1) {
+      return res.status(400).json({ message: "Group name and at least 1 participant required" })
+    }
+
+    // Validate participants exist
+    const validParticipants = []
+    for (const participantId of participants) {
+      const user = User.findById(participantId)
+      if (user) {
+        validParticipants.push(participantId)
+      }
+    }
+
+    if (validParticipants.length === 0) {
+      return res.status(400).json({ message: "No valid participants found" })
     }
 
     const chat = Chat.create({
       name,
-      isGroup: true,
-      participants: [...participants, req.user.id],
+      isGroup: validParticipants.length > 1,
+      participants: [...validParticipants, req.user.id],
       adminId: req.user.id,
-      chatType: "group",
+      chatType: validParticipants.length > 1 ? "group" : "personal",
     })
 
     res.json(chat)
   } catch (error) {
     console.error("Create group error:", error)
-    res.status(500).json({ message: "Failed to create group" })
+    res.status(500).json({ message: "Failed to create chat" })
   }
 })
 
@@ -67,7 +80,7 @@ router.get("/users/search", auth, async (req, res) => {
   try {
     const { q } = req.query
 
-    if (!q) {
+    if (!q || q.length < 2) {
       return res.json([])
     }
 
@@ -76,6 +89,28 @@ router.get("/users/search", auth, async (req, res) => {
   } catch (error) {
     console.error("Search users error:", error)
     res.status(500).json({ message: "Failed to search users" })
+  }
+})
+
+// Get chat details
+router.get("/chats/:chatId", auth, async (req, res) => {
+  try {
+    const { chatId } = req.params
+
+    // Verify user is participant
+    if (!Chat.isParticipant(chatId, req.user.id)) {
+      return res.status(404).json({ message: "Chat not found or access denied" })
+    }
+
+    const chat = Chat.findById(chatId)
+    if (!chat) {
+      return res.status(404).json({ message: "Chat not found" })
+    }
+
+    res.json(chat)
+  } catch (error) {
+    console.error("Get chat details error:", error)
+    res.status(500).json({ message: "Failed to fetch chat details" })
   }
 })
 
