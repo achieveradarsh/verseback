@@ -13,12 +13,13 @@ const auth = async (req, res, next) => {
     const user = User.findById(decoded.userId)
 
     if (!user) {
-      return res.status(401).json({ message: "Invalid token" })
+      return res.status(401).json({ message: "Invalid token - user not found" })
     }
 
     req.user = user
     next()
   } catch (error) {
+    console.error("Auth middleware error:", error)
     res.status(401).json({ message: "Invalid token" })
   }
 }
