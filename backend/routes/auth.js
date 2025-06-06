@@ -121,14 +121,13 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ message: "Invalid or expired OTP" })
     }
 
-    // Delete used OTP
-    OTP.deleteById(otpDoc.id)
-
-    // Find or create user
+    // Find existing user
     let user = User.findByEmail(email)
 
     if (!user) {
+      // New user - check if username is provided
       if (!username) {
+        // Don't delete OTP yet, user needs to provide username
         return res.status(400).json({ message: "Username required for new users" })
       }
 
@@ -147,8 +146,12 @@ router.post("/verify-otp", async (req, res) => {
         return res.status(400).json({ message: "Username already taken" })
       }
 
+      // Create new user
       user = User.create({ email, username })
     }
+
+    // Delete OTP only after successful verification/user creation
+    OTP.deleteById(otpDoc.id)
 
     // Generate JWT token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: "7d" })
