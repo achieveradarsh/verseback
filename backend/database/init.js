@@ -98,7 +98,7 @@ const createTables = () => {
 // Clean up expired OTPs periodically
 const cleanupExpiredOTPs = () => {
   try {
-    const stmt = db.prepare('DELETE FROM otps WHERE expires_at < datetime("now")')
+    const stmt = db.prepare("DELETE FROM otps WHERE expires_at < datetime('now')")
     const result = stmt.run()
     if (result.changes > 0) {
       console.log(`🧹 Cleaned up ${result.changes} expired OTPs`)
