@@ -14,13 +14,14 @@ const chatRoutes = require("./routes/chat")
 const { authenticateSocket } = require("./middleware/socketAuth")
 const Message = require("./models/Message")
 const Chat = require("./models/Chat")
+const User = require("./models/User")
 
 const app = express()
 const server = http.createServer(app)
 
-// CORS configuration
+// CORS configuration - Allow all origins for now, update with Vercel URL later
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: process.env.FRONTEND_URL || "*",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -43,7 +44,12 @@ app.use("/api/chat", chatRoutes)
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ status: "OK", timestamp: new Date().toISOString() })
+  res.json({
+    status: "OK",
+    timestamp: new Date().toISOString(),
+    database: "SQLite",
+    version: "1.0.0",
+  })
 })
 
 // Socket.IO setup
@@ -60,6 +66,9 @@ io.on("connection", (socket) => {
 
   // Join user to their personal room
   socket.join(socket.userId)
+
+  // Update user online status
+  User.updateOnlineStatus(socket.userId, true)
 
   // Handle joining chat rooms
   socket.on("join-room", (roomId) => {
@@ -107,17 +116,23 @@ io.on("connection", (socket) => {
   socket.on("typing", (data) => {
     socket.to(data.chatId).emit("user-typing", {
       userId: socket.userId,
+      username: socket.user.username,
       isTyping: data.isTyping,
     })
   })
 
+  // Handle disconnect
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.userId}`)
+    // Update user offline status
+    User.updateOnlineStatus(socket.userId, false)
   })
 })
 
 const PORT = process.env.PORT || 5000
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
-  console.log(`Environment: ${process.env.NODE_ENV}`)
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`)
+  console.log(`Database: SQLite`)
+  console.log(`CORS Origin: ${corsOptions.origin}`)
 })
